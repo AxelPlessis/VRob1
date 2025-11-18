@@ -367,3 +367,4 @@ FodyWeavers.xsd
 *.sln.docstates
 *.vcxproj.user
 *.vcxproj.filters
+*.vcxproj
