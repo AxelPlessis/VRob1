@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/videoio/registry.hpp>
 #include <fstream>
+#include <vector>
 
 int main()
 
