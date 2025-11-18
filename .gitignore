@@ -362,6 +362,5 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-VRob1.vcxproj.filters
-
-VRob1.vcxproj.user
+*.vcxproj.filters
+*.vcxproj.user
