@@ -1,0 +1,17 @@
+FRAME 0 : 
+
+Point clicked 0_x_0 : (462, 105)
+Point clicked 0_x_1 : (558, 106)
+Point clicked 0_x_2 : (558, 220)
+Point clicked 0_x_3 : (462, 220)
+
+0		  1
++ - - - - +
+|         |
+|         |    2,3 cm
+|         |
+|         |
++ - - - - +
+3		  2
+
+    2,0cm

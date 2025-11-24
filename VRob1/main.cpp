@@ -28,7 +28,7 @@ int main()
 	auto be = videoio_registry::getBackends();
 	for (auto b : be) cout << videoio_registry::getBackendName(b) << "\n";
 
-	string path = "./ressources/video3.mp4";
+	string path = "./ressources/video1.mp4";
 	ifstream test(path);
 	if (!test.good()) {
 		cerr << "File not found or inaccessible: " << path << endl;
@@ -39,7 +39,7 @@ int main()
 
 	VideoCapture cap(path, CAP_FFMPEG);
 
-
+	vector<Point2f> coins;
 
     if (!cap.isOpened()) {
 		cerr << "Error: Could not open video file." << endl;
@@ -50,9 +50,14 @@ int main()
 	setMouseCallback("Video Frame", onMouse);
 
 	Mat frame;
+
 	cap >> frame;
+
 	while (true) {
-		//cap >> frame; 
+
+		// Commenter : une seule frame
+		// cap >> frame; 
+
 		if (frame.empty()) {
 			break; // End of video
 		}
