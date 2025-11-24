@@ -1,48 +1,72 @@
 
+#include <iostream>
+#include <fstream>
+#include <vector>
+
+#include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
+#include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
-#include <iostream>
-#include <opencv2/opencv.hpp>
 #include <opencv2/videoio/registry.hpp>
-#include <fstream>
+#include <opencv2/imgproc.hpp>
+
+using namespace cv;
+using namespace std;
+
+void onMouse(int event, int x, int y, int flags, void* param)
+{
+	if (event == EVENT_LBUTTONDOWN)
+	{
+		cout << "Point clicked : (" << x << ", " << y << ")" << endl;
+	}
+}
 
 int main()
 
 {
-	auto be = cv::videoio_registry::getBackends();
-	for (auto b : be) std::cout << cv::videoio_registry::getBackendName(b) << "\n";
+	auto be = videoio_registry::getBackends();
+	for (auto b : be) cout << videoio_registry::getBackendName(b) << "\n";
 
-	std::string path = "./ressources/video2.mp4";
-	std::ifstream test(path);
+	string path = "./ressources/video1.mp4";
+	ifstream test(path);
 	if (!test.good()) {
-		std::cerr << "File not found or inaccessible: " << path << std::endl;
+		cerr << "File not found or inaccessible: " << path << endl;
 		return -1;
 	}
 
-	std::cout << "Chemin passé à OpenCV : [" << path << "]" << std::endl;
+	cout << "Chemin passé à OpenCV : [" << path << "]" << endl;
 
-	cv::VideoCapture cap(path, cv::CAP_FFMPEG);
+	VideoCapture cap(path, CAP_FFMPEG);
 
-
+	vector<Point2f> coins;
 
     if (!cap.isOpened()) {
-		std::cerr << "Error: Could not open video file." << std::endl;
+		cerr << "Error: Could not open video file." << endl;
 		return -1;
 	}
 
-	cv::Mat frame;
+	namedWindow("Video Frame");
+	setMouseCallback("Video Frame", onMouse);
+
+	Mat frame;
+
+	cap >> frame;
+
 	while (true) {
-		cap >> frame;
+
+		// Commenter : une seule frame
+		// cap >> frame; 
+
 		if (frame.empty()) {
 			break; // End of video
 		}
-		cv::imshow("Video Frame", frame);
-		if (cv::waitKey(30) >= 0) {
+		imshow("Video Frame", frame);
+		if (waitKey(30) >= 0) {
 			break; // Exit on any key press
 		}
 	}
 	cap.release();
-	cv::destroyAllWindows();
+	destroyAllWindows();
 	return 0;
 }
