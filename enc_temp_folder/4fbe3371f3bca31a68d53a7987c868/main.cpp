@@ -91,7 +91,7 @@ int main()
 	while (true) {
 
 		// Commenter : une seule frame
-		//cap >> frame; 
+		// cap >> frame; 
 
 		if (frame.empty()) {
 			break; // End of video
