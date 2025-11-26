@@ -15,3 +15,6 @@ Point clicked 0_x_3 : (462, 220)
 3		  2
 
     2,0cm
+
+    Commandes to run calibration:
+opencv_interactive-calibration -v="C:\Laican\Cours\vrob1\VRob1\ressources\mire.mp4" -t=chessboard -w=8 -h=5 -of="C:\Laican\Cours\vrob1\VRob1\ressources\calib.xml"
