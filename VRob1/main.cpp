@@ -62,10 +62,22 @@ int main()
 	cap >> frame;
 
 	// Chargement du fichier XML
-	cv::FileStorage fs("calib.xml", cv::FileStorage::READ);
-	cv::Mat cameraMatrix, rvec, tvec;
-	fs["camera_matrix"] >> cameraMatrix;
+	cv::FileStorage fs("./ressources/calib.xml", cv::FileStorage::READ);
+	if (!fs.isOpened()) {
+		std::cerr << "Failed to open calib.xml\n";
+		return -1;
+	}
+
+	cv::Mat K, dist;
+
+	// Les noms doivent correspondre exactement au XML :
+	fs["cameraMatrix"] >> K;        // OK
+	fs["dist_coeffs"] >> dist;      // OK
+
 	fs.release();
+
+	std::cout << "K:\n" << K << "\n\n";
+	std::cout << "dist:\n" << dist << "\n";
 
 	vector<Point2f> corners = {
 		Point2f(462, 105),
@@ -74,18 +86,30 @@ int main()
 		Point2f(462, 220)
 	};
 
-	vector<Point2f> objectPoints = {
-	{0,0},
-	{2.0,0},
-	{2.0,2.3},
-	{0,2.3}
+	vector<Point3f> objectPoints = {
+	{0,0, 0},
+	{2.0,0, 0},
+	{2.0,2.3, 0},
+	{0,2.3, 0}
 	};
 
-	cout << "Camera Matrix: " << cameraMatrix << endl;
+	vector<Point2f> refPts = transform(corners, K);
 
-	cout << transform(corners, cameraMatrix) << endl;
+	cout << "refpts:" << refPts << endl;
 
-	
+	Mat rvec, tvec;
+
+	solvePnP(objectPoints, corners, K, dist, rvec, tvec);
+
+	cout << "rvec: " << rvec.t() << endl;
+	cout << "tvec: " << tvec.t() << endl;
+
+	Mat R;
+	Rodrigues(rvec, R);
+
+	cout << "R: " << R << endl;
+
+
 
 
 	while (true) {
