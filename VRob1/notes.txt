@@ -1,20 +1,24 @@
 FRAME 0 : 
 
-Point clicked 0_x_0 : (462, 105)
-Point clicked 0_x_1 : (558, 106)
-Point clicked 0_x_2 : (558, 220)
-Point clicked 0_x_3 : (462, 220)
+Point clicked : (376, 96)
+Point clicked : (497, 72)
+Point clicked : (558, 266)
+Point clicked : (433, 299)
 
-0		  1
+0  5,5cm  1
 + - - - - +
 |         |
-|         |    2,3 cm
+|         |    9,1 cm
 |         |
 |         |
 + - - - - +
 3		  2
 
-    2,0cm
 
     Commandes to run calibration:
 opencv_interactive-calibration -v="C:\Laican\Cours\vrob1\VRob1\ressources\mire.mp4" -t=chessboard -w=8 -h=5 -of="C:\Laican\Cours\vrob1\VRob1\ressources\calib.xml"
+
+
+        715.37125436624262      0.0                     426.19984633146777
+K =     0.0                     715.37125436624262      240.26939041691907 
+        0.0                     0.0                     1.0

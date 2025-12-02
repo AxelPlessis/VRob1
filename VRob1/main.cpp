@@ -38,7 +38,7 @@ int main()
 	auto be = videoio_registry::getBackends();
 	for (auto b : be) cout << videoio_registry::getBackendName(b) << "\n";
 
-	string path = "./ressources/video1.mp4";
+	string path = "./ressources/video2.mp4";
 	ifstream test(path);
 	if (!test.good()) {
 		cerr << "File not found or inaccessible: " << path << endl;
@@ -80,17 +80,17 @@ int main()
 	std::cout << "dist:\n" << dist << "\n";
 
 	vector<Point2f> corners = {
-		Point2f(462, 105),
-		Point2f(558, 106),
-		Point2f(558, 220),
-		Point2f(462, 220)
+		Point2f(376, 96),
+		Point2f(497, 72),
+		Point2f(558, 266),
+		Point2f(433, 299)
 	};
-
+	
 	vector<Point3f> objectPoints = {
-	{0,0, 0},
-	{2.0,0, 0},
-	{2.0,2.3, 0},
-	{0,2.3, 0}
+		{0,0, 0},
+		{2.9,0, 0},
+		{2.0,2.3, 0},
+		{0,2.8, 0}
 	};
 
 	vector<Point2f> refPts = transform(corners, K);
@@ -109,7 +109,47 @@ int main()
 
 	cout << "R: " << R << endl;
 
+	Ptr<SIFT> sift = SIFT::create();
 
+	std::vector<KeyPoint> keypoints;
+	Mat descriptors;
+
+	sift->detectAndCompute(frame, noArray(), keypoints, descriptors);
+
+	Mat output;
+	drawKeypoints(frame, keypoints, output, Scalar::all(255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	imshow("SIFT keypoints", output);
+
+	sift->detectAndCompute(frame, noArray(), keypoints, descriptors);
+
+	std::vector<Point> zone = {
+		Point(366, 86),
+		Point(507, 62),
+		Point(568, 276),
+		Point(423, 309)
+	};
+
+	std::vector<KeyPoint> filteredKP;
+	Mat filteredDesc;
+
+	for (int i = 0; i < keypoints.size(); i++) {
+		Point2f p = keypoints[i].pt;
+
+		double inside = pointPolygonTest(zone, p, false);
+
+		if (inside >= 0) {  
+			filteredKP.push_back(keypoints[i]);
+			filteredDesc.push_back(descriptors.row(i));
+		}
+	}
+
+	Mat imgColor; 
+	cvtColor(frame, imgColor, COLOR_BGR2BGRA);
+	std::vector<std::vector<cv::Point>> contours = { zone };
+	polylines(imgColor, contours, true, Scalar(0, 255, 0), 2);
+
+	drawKeypoints(imgColor, filteredKP, imgColor, Scalar(0, 0, 255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	imshow("KP in zone", imgColor);
 
 
 	while (true) {
