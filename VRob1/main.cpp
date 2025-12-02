@@ -45,7 +45,7 @@ int main()
 		return -1;
 	}
 
-	cout << "Chemin passé à OpenCV : [" << path << "]" << endl;
+	cout << "Chemin passe a OpenCV : [" << path << "]" << endl;
 
 	VideoCapture cap(path, CAP_FFMPEG);
 
@@ -97,17 +97,24 @@ int main()
 
 	cout << "refpts:" << refPts << endl;
 
+	//Construction de la matrice homogène
 	Mat rvec, tvec;
-
 	solvePnP(objectPoints, corners, K, dist, rvec, tvec);
-
 	cout << "rvec: " << rvec.t() << endl;
 	cout << "tvec: " << tvec.t() << endl;
 
 	Mat R;
 	Rodrigues(rvec, R);
-
 	cout << "R: " << R << endl;
+
+	cv::Mat H = (cv::Mat_<double>(4, 4) <<
+		R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2), tvec.at<double>(0),
+		R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2), tvec.at<double>(1),
+		R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2), tvec.at<double>(2),
+		0, 0, 0, 1
+	);
+	cout << "Matrice homogene: \n" << H << endl;
+	
 
 	Ptr<SIFT> sift = SIFT::create();
 
@@ -122,14 +129,15 @@ int main()
 
 	sift->detectAndCompute(frame, noArray(), keypoints, descriptors);
 
-	std::vector<Point> zone = {
+	//Coins mais agrandis pour accueillir les kp importants
+	vector<Point> zone = {
 		Point(366, 86),
 		Point(507, 62),
 		Point(568, 276),
 		Point(423, 309)
 	};
 
-	std::vector<KeyPoint> filteredKP;
+	vector<KeyPoint> filteredKP;
 	Mat filteredDesc;
 
 	for (int i = 0; i < keypoints.size(); i++) {
@@ -145,12 +153,26 @@ int main()
 
 	Mat imgColor; 
 	cvtColor(frame, imgColor, COLOR_BGR2BGRA);
-	std::vector<std::vector<cv::Point>> contours = { zone };
+	vector<vector<Point>> contours = { zone };
 	polylines(imgColor, contours, true, Scalar(0, 255, 0), 2);
 
 	drawKeypoints(imgColor, filteredKP, imgColor, Scalar(0, 0, 255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	imshow("KP in zone", imgColor);
 
+	vector<Point3d> kp3d;
+
+	//Calcul des points 3D X des kp importants par rapport au repere Rw
+	for (int i = 0; i < filteredKP.size(); i++) {
+		Mat X = (cv::Mat_<double>(4, 1) << filteredKP[i].pt.x, filteredKP[i].pt.y, 0.0, 1.0);
+
+		cv::Mat Xw = H * X;
+
+		double Xw_x = Xw.at<double>(0) / Xw.at<double>(3);
+		double Xw_y = Xw.at<double>(1) / Xw.at<double>(3);
+		double Xw_z = Xw.at<double>(2) / Xw.at<double>(3);
+
+		kp3d.push_back(cv::Point3d(Xw_x, Xw_y, Xw_z));
+	}
 
 	while (true) {
 
