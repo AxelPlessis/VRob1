@@ -165,13 +165,9 @@ int main()
 	for (int i = 0; i < filteredKP.size(); i++) {
 		Mat X = (cv::Mat_<double>(4, 1) << filteredKP[i].pt.x, filteredKP[i].pt.y, 0.0, 1.0);
 
-		cv::Mat Xw = H * X;
+		Mat Xw = H * X;
 
-		double Xw_x = Xw.at<double>(0) / Xw.at<double>(3);
-		double Xw_y = Xw.at<double>(1) / Xw.at<double>(3);
-		double Xw_z = Xw.at<double>(2) / Xw.at<double>(3);
-
-		kp3d.push_back(cv::Point3d(Xw_x, Xw_y, Xw_z));
+		kp3d.push_back(cv::Point3d(Xw.at<double>(0), Xw.at<double>(1), Xw.at<double>(2)));
 	}
 
 	while (true) {
