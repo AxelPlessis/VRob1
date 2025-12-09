@@ -58,7 +58,6 @@ int main()
 	setMouseCallback("Video Frame", onMouse);
 
 	Mat frame;
-
 	cap >> frame;
 
 	// Chargement du fichier XML
@@ -69,15 +68,14 @@ int main()
 	}
 
 	cv::Mat K, dist;
-
-	// Les noms doivent correspondre exactement au XML :
-	fs["cameraMatrix"] >> K;        // OK
-	fs["dist_coeffs"] >> dist;      // OK
-
+	fs["cameraMatrix"] >> K;
+	fs["dist_coeffs"] >> dist;
 	fs.release();
-
-	std::cout << "K:\n" << K << "\n\n";
+	std::cout << "Matrice camera K:\n" << K << "\n\n";
 	std::cout << "dist:\n" << dist << "\n";
+
+
+	// POINTS EN PIXELS ET EN CENTIMETRE
 
 	vector<Point2f> corners = {
 		Point2f(376, 96),
@@ -97,24 +95,29 @@ int main()
 
 	cout << "refpts:" << refPts << endl;
 
-	//Construction de la matrice homogène
+
+	//  CONSTRUCTION DE LA MATRICE HOMOGENE cam_T_w
+	
 	Mat rvec, tvec;
 	solvePnP(objectPoints, corners, K, dist, rvec, tvec);
-	cout << "rvec: " << rvec.t() << endl;
-	cout << "tvec: " << tvec.t() << endl;
+	//cout << "rvec: " << rvec.t() << endl;
+	//cout << "tvec: " << tvec.t() << endl;
 
 	Mat R;
 	Rodrigues(rvec, R);
-	cout << "R: " << R << endl;
+	//cout << "R: " << R << endl;
 
-	cv::Mat H = (cv::Mat_<double>(4, 4) <<
+	// Repere plan
+	cv::Mat cam_T_w = (cv::Mat_<double>(4, 4) <<
 		R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2), tvec.at<double>(0),
 		R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2), tvec.at<double>(1),
 		R.at<double>(2, 0), R.at<double>(2, 1), R.at<double>(2, 2), tvec.at<double>(2),
 		0, 0, 0, 1
 	);
-	cout << "Matrice homogene: \n" << H << endl;
+	cout << "Matrice homogene de la camera: \n" << cam_T_w << endl;
 	
+
+	//  DEBUT DU SIFT
 
 	Ptr<SIFT> sift = SIFT::create();
 
@@ -127,9 +130,11 @@ int main()
 	drawKeypoints(frame, keypoints, output, Scalar::all(255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	imshow("SIFT keypoints", output);
 
-	sift->detectAndCompute(frame, noArray(), keypoints, descriptors);
 
-	//Coins mais agrandis pour accueillir les kp importants
+
+	//   RECUPERATION SEULEMENT POINTS SIFTS DANS LA ZONE 
+
+	// Coins mais agrandis pour accueillir les kp importants
 	vector<Point> zone = {
 		Point(366, 86),
 		Point(507, 62),
@@ -153,34 +158,49 @@ int main()
 
 	Mat imgColor; 
 	cvtColor(frame, imgColor, COLOR_BGR2BGRA);
-	vector<vector<Point>> contours = { zone };
+	vector<vector<Point>> contours = {zone};
 	polylines(imgColor, contours, true, Scalar(0, 255, 0), 2);
 
 	drawKeypoints(imgColor, filteredKP, imgColor, Scalar(0, 0, 255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	imshow("KP in zone", imgColor);
 
+
+	//  CALCUL DES POSITIONS DES POINTS EN 3D DANS REPERE Rw
+
 	vector<Point3d> kp3d;
 
 	//Calcul des points 3D X des kp importants par rapport au repere Rw
 	for (int i = 0; i < filteredKP.size(); i++) {
-		Mat X = (cv::Mat_<double>(4, 1) << filteredKP[i].pt.x, filteredKP[i].pt.y, 0.0, 1.0);
+		Mat cam_x = (cv::Mat_<double>(4, 1) <<
+			filteredKP[i].pt.x,
+			filteredKP[i].pt.y,
+			0.0,
+			1.0
+		);
 
-		Mat Xw = H * X;
+		Mat w_X = cam_T_w * cam_x;
 
-		kp3d.push_back(cv::Point3d(Xw.at<double>(0), Xw.at<double>(1), Xw.at<double>(2)));
+		kp3d.push_back(cv::Point3d(
+			w_X.at<double>(0),
+			w_X.at<double>(1),
+			w_X.at<double>(2)
+		));
 	}
+
+
+	//  LECTURE DE LA VIDEO
 
 	while (true) {
 
-		// Commenter : une seule frame
-		//cap >> frame; 
+		// Commenter = une seule frame
+		// cap >> frame; 
 
 		if (frame.empty()) {
-			break; // End of video
+			break;
 		}
 		imshow("Video Frame", frame);
 		if (waitKey(30) >= 0) {
-			break; // Exit on any key press
+			break;
 		}
 	}
 	cap.release();
