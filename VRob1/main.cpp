@@ -172,8 +172,8 @@ int main()
 	//Calcul des points 3D X des kp importants par rapport au repere Rw
 	for (int i = 0; i < filteredKP.size(); i++) {
 		Mat cam_x = (cv::Mat_<double>(4, 1) <<
-			filteredKP[i].pt.x,
-			filteredKP[i].pt.y,
+			filteredKP[i].pt.x,			// u
+			filteredKP[i].pt.y,			// v
 			0.0,
 			1.0
 		);
