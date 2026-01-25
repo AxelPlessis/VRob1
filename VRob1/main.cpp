@@ -169,31 +169,83 @@ int main()
 
 	vector<Point3d> kp3d;
 
-	//Calcul des points 3D X des kp importants par rapport au repere Rw
+	cv::Mat R_inv = R.t();
+	cv::Mat t_inv = -R_inv * tvec;
+
+	cv::Mat w_T_cam = cv::Mat::eye(4, 4, CV_64F);
+
+	R_inv.copyTo(w_T_cam(cv::Rect(0, 0, 3, 3)));
+	t_inv.copyTo(w_T_cam(cv::Rect(3, 0, 1, 3)));
+
+	cv::Point3d O_cam(w_T_cam.at<double>(0, 3),
+		w_T_cam.at<double>(1, 3),
+		w_T_cam.at<double>(2, 3));
+
 	for (int i = 0; i < filteredKP.size(); i++) {
-		Mat cam_x = (cv::Mat_<double>(4, 1) <<
-			filteredKP[i].pt.x,			// u
-			filteredKP[i].pt.y,			// v
-			0.0,
-			1.0
-		);
+		double x_norm = (filteredKP[i].pt.x - K.at<double>(0, 2)) / K.at<double>(0, 0);
+		double y_norm = (filteredKP[i].pt.y - K.at<double>(1, 2)) / K.at<double>(1, 1);
 
-		Mat w_X = cam_T_w * cam_x;
+		cv::Mat ray_cam = (cv::Mat_<double>(3, 1) << x_norm, y_norm, 1.0);
 
-		kp3d.push_back(cv::Point3d(
-			w_X.at<double>(0),
-			w_X.at<double>(1),
-			w_X.at<double>(2)
-		));
+		cv::Mat ray_world_mat = R_inv * ray_cam;
+		cv::Point3d d_world(ray_world_mat.at<double>(0),
+			ray_world_mat.at<double>(1),
+			ray_world_mat.at<double>(2));
+
+		if (std::abs(d_world.z) > 1e-6) {
+			double lambda = -O_cam.z / d_world.z;
+			cv::Point3d X_world = O_cam + lambda * d_world;
+			kp3d.push_back(X_world);
+		}
 	}
 
+	// --- VÉRIFICATION PAR REPROJECTION ---
+
+	vector<Point3f> kp3d_float;
+	for (const auto& p : kp3d) {
+		kp3d_float.push_back(Point3f((float)p.x, (float)p.y, (float)p.z));
+	}
+
+	// 2. Préparez le vecteur de sortie explicitement
+	vector<Point2f> projectedPoints;
+
+	try {
+		if (!kp3d_float.empty()) {
+			// K, dist, rvec, tvec peuvent rester en double (CV_64F)
+			cv::projectPoints(kp3d_float, rvec, tvec, K, dist, projectedPoints);
+		}
+	}
+	catch (const cv::Exception& e) {
+		cerr << "Erreur : " << e.what() << endl;
+	}
+
+	// Création d'une image pour afficher la différence
+	Mat imgCheck = frame.clone();
+	for (size_t i = 0; i < projectedPoints.size(); i++) {
+		circle(imgCheck, filteredKP[i].pt, 4, Scalar(0, 0, 255), -1);
+
+		circle(imgCheck, projectedPoints[i], 2, Scalar(0, 255, 0), -1);
+
+	}
+
+	imshow("Verification Reprojection", imgCheck);
+
+	if (!kp3d_float.empty()) {
+		cout << "Exemple de point 3D calculé (Rw) : " << kp3d_float[0] << endl;
+
+	}
 
 	//  LECTURE DE LA VIDEO
 
 	while (true) {
 
 		// Commenter = une seule frame
-		// cap >> frame; 
+		cap >> frame; 
+
+		vector<KeyPoint> kp_k;
+		Mat desc_k;
+			 
+		sift->detectAndCompute(frame, noArray(), kp_k, desc_k);
 
 		if (frame.empty()) {
 			break;
