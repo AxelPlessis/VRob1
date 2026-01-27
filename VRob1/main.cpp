@@ -86,17 +86,10 @@ int main()
 	
 	vector<Point3f> w_X_i_ref = {
 		{0,0, 0},
-		{2.3,0, 0},
-		{2.3,2., 0},
-		{0,2., 0}
+		{0.,5.5, 0},
+		{9.,5.5, 0},
+		{9.,0., 0}
 	};
-
-	/*vector<Point3f> objectPoints = {
-		{0,0, 0},
-		{2.9,0, 0},
-		{2.0,2.3, 0},
-		{0,2.8, 0}
-	};*/
 
 	vector<Point2f> refPts = transform(zero_x_i_ref, K);
 
@@ -236,7 +229,7 @@ int main()
 	}
 
 	// ==== IMAGE DE REPROJECTION ====
-	imshow("Verification Reprojection", imgCheck);
+	cv::imshow("Verification Reprojection", imgCheck);
 
 	if (!w_X_i_float.empty()) {
 		cout << "Exemple de point 3D calcule (Rw) : " << w_X_i_float[0] << endl;
@@ -251,7 +244,7 @@ int main()
 	while (true) {
 
 		// Commenter = une seule frame
-		cap >> frame; 
+		//cap >> frame; 
 
 		// Repeter en boucle la video
 		if (frame.empty()) {
@@ -285,7 +278,7 @@ int main()
 		}
 
 		
-		imshow("Video Frame", frame);
+		cv::imshow("Video Frame", frame);
 
 		if (waitKey(30) >= 0) {
 			break;
