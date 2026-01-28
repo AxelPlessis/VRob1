@@ -18,7 +18,7 @@ void onMouse(int event, int x, int y, int flags, void* param)
 {
 	if (event == EVENT_LBUTTONDOWN)
 	{
-		cout << "Point clicked : (" << x << ", " << y << ")" << endl;
+		cout << "Point2f(" << x << ", " << y << ")" << endl;
 	}
 }
 
@@ -38,7 +38,7 @@ int main()
 	auto be = videoio_registry::getBackends();
 	for (auto b : be) cout << videoio_registry::getBackendName(b) << "\n";
 
-	string path = "./ressources/video2.mp4";
+	string path = "./ressources/video1.mp4";
 	ifstream test(path);
 	if (!test.good()) {
 		cerr << "File not found or inaccessible: " << path << endl;
@@ -77,19 +77,36 @@ int main()
 
 	// POINTS EN PIXELS ET EN CENTIMETRE
 
+
+	// Vidéo 1
 	vector<Point2f> zero_x_i_ref = {
-		Point2f(376, 96),
-		Point2f(497, 72),
-		Point2f(558, 266),
-		Point2f(433, 299)
+		Point2f(335, 88),
+		Point2f(492, 86),
+		Point2f(499, 317),
+		Point2f(339, 317)
+	};
+
+	vector<Point3f> w_X_i_ref = {
+		{0,0, 0},
+		{12.5,0, 0},
+		{12.5,17.8, 0},
+		{0,17.8, 0}
+	};
+
+	// Vidéo 2
+	/*vector<Point2f> zero_x_i_ref = {
+	Point2f(324, 119),
+	Point2f(582, 99),
+	Point2f(597, 353),
+	Point2f(347, 370)
 	};
 	
 	vector<Point3f> w_X_i_ref = {
 		{0,0, 0},
-		{0.,5.5, 0},
-		{9.,5.5, 0},
-		{9.,0., 0}
-	};
+		{25.5,0, 0},
+		{25.5,25.5, 0},
+		{0,25.5, 0}
+	};*/
 
 	vector<Point2f> refPts = transform(zero_x_i_ref, K);
 
@@ -130,43 +147,37 @@ int main()
 	drawKeypoints(frame, keypoints, output, Scalar::all(255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 
 	// ==== IMAGE AVEC POINTS SIFT ====
-	//imshow("SIFT keypoints", output);
+	imshow("SIFT keypoints", output);
 
 
 
 	//   RECUPERATION SEULEMENT POINTS SIFTS DANS LA ZONE 
 
-	// Coins + padding (pour accueillir les kp importants)
-	vector<Point> zone = {
-		Point(366, 86),
-		Point(507, 62),
-		Point(568, 276),
-		Point(423, 309)
-	};
-
-	vector<KeyPoint> filtered_kp;
+	vector<KeyPoint> zero_x_i;
 	Mat desc_zero;
 
 	for (int i = 0; i < keypoints.size(); i++) {
 		Point2f p = keypoints[i].pt;
 
-		double inside = pointPolygonTest(zone, p, false);
+		double inside = pointPolygonTest(zero_x_i_ref, p, false);
 
 		if (inside >= 0) {  
-			filtered_kp.push_back(keypoints[i]);
+			zero_x_i.push_back(keypoints[i]);
 			desc_zero.push_back(descriptors.row(i));
 		}
 	}
 
 	Mat imgColor; 
 	cvtColor(frame, imgColor, COLOR_BGR2BGRA);
-	vector<vector<Point>> contours = {zone};
-	polylines(imgColor, contours, true, Scalar(0, 255, 0), 2);
 
-	drawKeypoints(imgColor, filtered_kp, imgColor, Scalar(0, 0, 255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+	vector<Point> contours(zero_x_i_ref.begin(), zero_x_i_ref.end());
+
+	polylines(imgColor, vector<vector<Point>>{contours}, true, Scalar(0, 255, 0), 2);
+
+	drawKeypoints(imgColor, zero_x_i, imgColor, Scalar(0, 0, 255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	
 	// ==== IMAGE AVEC KEYPOINTS DANS LA ZONE ====
-	//imshow("KP in zone", imgColor);
+	imshow("KP in zone", imgColor);
 
 
 	//  CALCUL DES POSITIONS DES POINTS EN 3D DANS REPERE Rw
@@ -185,9 +196,9 @@ int main()
 		w_T_zero.at<double>(1, 3),
 		w_T_zero.at<double>(2, 3));
 
-	for (int i = 0; i < filtered_kp.size(); i++) {
-		double x_norm = (filtered_kp[i].pt.x - K.at<double>(0, 2)) / K.at<double>(0, 0);
-		double y_norm = (filtered_kp[i].pt.y - K.at<double>(1, 2)) / K.at<double>(1, 1);
+	for (int i = 0; i < zero_x_i.size(); i++) {
+		double x_norm = (zero_x_i[i].pt.x - K.at<double>(0, 2)) / K.at<double>(0, 0);
+		double y_norm = (zero_x_i[i].pt.y - K.at<double>(1, 2)) / K.at<double>(1, 1);
 
 		cv::Mat ray_cam = (cv::Mat_<double>(3, 1) << x_norm, y_norm, 1.0);
 
@@ -223,7 +234,7 @@ int main()
 
 	Mat imgCheck = frame.clone();
 	for (size_t i = 0; i < projectedPoints.size(); i++) {
-		circle(imgCheck, filtered_kp[i].pt, 4, Scalar(0, 0, 255), -1);
+		circle(imgCheck, zero_x_i[i].pt, 4, Scalar(0, 0, 255), -1);
 		
 		circle(imgCheck, projectedPoints[i], 2, Scalar(0, 255, 0), -1);
 	}
@@ -235,16 +246,13 @@ int main()
 		cout << "Exemple de point 3D calcule (Rw) : " << w_X_i_float[0] << endl;
 	}
 
-	Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create(DescriptorMatcher::FLANNBASED);
-	if (desc_zero.type() != CV_32F) desc_zero.convertTo(desc_zero, CV_32F);
-
 	//  LECTURE DE LA VIDEO
 	
 
 	while (true) {
 
 		// Commenter = une seule frame
-		//cap >> frame; 
+		cap >> frame; 
 
 		// Repeter en boucle la video
 		if (frame.empty()) {
@@ -252,31 +260,48 @@ int main()
 		}
 
 		// SIFT
-		vector<KeyPoint> keypoint_k;
+		vector<KeyPoint> k_x_i;
 		Mat desc_k;
-		sift->detectAndCompute(frame, noArray(), keypoint_k, desc_k);
+		sift->detectAndCompute(frame, noArray(), k_x_i, desc_k);
 
-		if (!desc_k.empty()) {
+		// FLANN Matcher
+		FlannBasedMatcher matcher;
+		vector<vector<DMatch>> desc_matches;
+		matcher.knnMatch(desc_zero, desc_k, desc_matches, 2);
 
-			vector<vector<DMatch>> knn_matches;
-			matcher->knnMatch(desc_zero, desc_k, knn_matches, 1);
+		// Definition des points
+		vector<Point2f> zero_goodMatches_i;
+		vector<Point2f> k_goodMatches_i;
 
-			vector<Point2f> k_x_i;
-			vector<Point3f> k_X_i;
 
-			for (size_t i = 0; i < knn_matches.size(); i++) {
-				k_x_i.push_back(keypoint_k[i].pt);
-				k_X_i.push_back(w_X_i_float[i]);
-			}
-
-			if (k_x_i.size() >= 4) {
-				Mat rvec_k, tvec_k;
-
-				solvePnP(k_X_i, k_x_i, K, dist, rvec_k, tvec_k);
-				drawFrameAxes(frame, K, dist, rvec_k, tvec_k, 1.0);
+		for (size_t i = 0; i < desc_matches.size(); i++) {
+			if (desc_matches[i][0].distance < 0.75 * desc_matches[i][1].distance) {
+				zero_goodMatches_i.push_back(zero_x_i[desc_matches[i][0].queryIdx].pt);
+				k_goodMatches_i.push_back(k_x_i[desc_matches[i][0].trainIdx].pt);
 			}
 		}
 
+
+		/*for (size_t i = 0; i < k_goodMatches_i.size(); i++) {
+			circle(frame, k_goodMatches_i[i], 4, Scalar(0, 0, 255), -1);
+			circle(frame, zero_goodMatches_i[i], 4, Scalar(255, 0, 255), -1);
+		}*/
+
+		if (zero_goodMatches_i.size() >= 4) {
+			Mat H = findHomography(zero_goodMatches_i, k_goodMatches_i, RANSAC);
+			vector<Point2f> k_x_i_ref;
+			if (!H.empty()) {
+				perspectiveTransform(zero_x_i_ref, k_x_i_ref, H);
+
+				vector<Point> points_int(k_x_i_ref.begin(), k_x_i_ref.end());
+
+				polylines(frame, vector<vector<Point>>{points_int}, true, Scalar(0, 255, 0), 2);
+			}
+
+		}
+
+		//Mat rvec_k, tvec_k;
+		//drawFrameAxes(frame,K,dist,rvec,tvec,10.0);
 		
 		cv::imshow("Video Frame", frame);
 
