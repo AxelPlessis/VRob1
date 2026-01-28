@@ -272,7 +272,6 @@ int main()
 		vector<KeyPoint> k_x_i;
 		Mat desc_k;
 		computeSIFT(frame, sift, k_x_i, desc_k);
-		Mat rvec_k, tvec_k, R_k, k_T_w;
 
 		FlannBasedMatcher matcher;
 		vector<vector<DMatch>> desc_matches;
@@ -286,52 +285,25 @@ int main()
 			}
 		}
 
-		if (k_goodMatches_i.size() >= 4)
-		{
-			vector<KeyPoint> matched_zero_x_i;
-			for (size_t i = 0; i < desc_matches.size(); i++) {
-				if (desc_matches[i][0].distance < 0.75 * desc_matches[i][1].distance) {
-					matched_zero_x_i.push_back(zero_x_i[desc_matches[i][0].queryIdx]);
-				}
-			}
-
-			vector<Point3d> w_goodMatches_i = compute3DPoints(matched_zero_x_i, K, R, tvec);
-
-			vector<Point3f> w_goodMatches_i_f;
-			for (const auto& p : w_goodMatches_i)
-				w_goodMatches_i_f.push_back(Point3f((float)p.x, (float)p.y, (float)p.z));
-
-			if (w_goodMatches_i_f.size() >= 4) {
-				computePose(
-					w_goodMatches_i_f,
-					k_goodMatches_i,
-					K,
-					dist,
-					rvec_k,
-					tvec_k,
-					R_k,
-					k_T_w
-				);
-
-				drawFrameAxes(frame, K, dist, rvec_k, tvec_k, 5.0);
-			}
-		}
-
-
 		if (zero_goodMatches_i.size() >= 4) {
 			Mat H = findHomography(zero_goodMatches_i, k_goodMatches_i, RANSAC);
 			if (!H.empty()) {
-				vector<Point2f> k_x_i_ref;
-				perspectiveTransform(zero_x_i_ref, k_x_i_ref, H);
-				vector<Point> points_int(k_x_i_ref.begin(), k_x_i_ref.end());
+				vector<Point2f> projected_corners;
+				perspectiveTransform(zero_x_i_ref, projected_corners, H);
+
+				vector<Point> points_int(projected_corners.begin(), projected_corners.end());
 				polylines(frame, vector<vector<Point>>{points_int}, true, Scalar(0, 255, 0), 2);
+
+				Mat rvec_k, tvec_k, R_k, k_T_w;
+				computePose(w_X_i_ref, projected_corners, K, dist, rvec_k, tvec_k, R_k, k_T_w);
+
+				drawFrameAxes(frame, K, dist, rvec_k, tvec_k, 5.0);
 			}
 		}
 
 		imshow("Video Frame", frame);
 		if (waitKey(30) >= 0) break;
 	}
-
 	cap.release();
 	return 0;
-}
+};
