@@ -178,6 +178,16 @@ void reprojectAndDisplay(
 	imshow("Verification Reprojection", imgCheck);
 }
 
+VideoWriter initVideoWriter(const string& filename, int width, int height, double fps = 30.0)
+{
+	int fourcc = VideoWriter::fourcc('m', 'p', '4', 'v'); // mp4
+	VideoWriter writer(filename, fourcc, fps, Size(width, height));
+	if (!writer.isOpened()) {
+		cerr << "Erreur : impossible d'ouvrir le fichier vidéo pour écriture : " << filename << endl;
+	}
+	return writer;
+}
+
 int main()
 {
 	auto be = videoio_registry::getBackends();
@@ -227,6 +237,12 @@ int main()
 
 	VideoCapture cap(path, CAP_FFMPEG);
 	if (!cap.isOpened()) return -1;
+
+	int width = static_cast<int>(cap.get(CAP_PROP_FRAME_WIDTH));
+	int height = static_cast<int>(cap.get(CAP_PROP_FRAME_HEIGHT));
+	double fps = cap.get(CAP_PROP_FPS);
+
+	VideoWriter writer = initVideoWriter("./output/result.mp4", width, height, fps);
 
 	namedWindow("Video Frame");
 	setMouseCallback("Video Frame", onMouse);
@@ -302,8 +318,11 @@ int main()
 		}
 
 		imshow("Video Frame", frame);
+		if (writer.isOpened()) writer.write(frame);
 		if (waitKey(30) >= 0) break;
 	}
 	cap.release();
+	if (writer.isOpened()) writer.release();
+	destroyAllWindows();
 	return 0;
 };
