@@ -13,6 +13,7 @@
 using namespace cv;
 using namespace std;
 
+// Donne coordonnées en pixel quand on clique sur un point sur video frame
 void onMouse(int event, int x, int y, int flags, void* param)
 {
 	if (event == EVENT_LBUTTONDOWN)
@@ -21,6 +22,7 @@ void onMouse(int event, int x, int y, int flags, void* param)
 	}
 }
 
+// Transforme des points image en coordonnées normalisées caméra
 vector<Point2f> transform(vector<Point2f> imgpts, Mat cameraMatrix)
 {
 	vector<Point2f> refPts(imgpts.size());
@@ -31,6 +33,7 @@ vector<Point2f> transform(vector<Point2f> imgpts, Mat cameraMatrix)
 	return refPts;
 }
 
+// Charge la calibration caméra depuis le fichier XML (Etape 3)
 bool loadCalibration(const string& path, Mat& K, Mat& dist)
 {
 	FileStorage fs(path, FileStorage::READ);
@@ -41,6 +44,7 @@ bool loadCalibration(const string& path, Mat& K, Mat& dist)
 	return true;
 }
 
+// Calcul de la matrice homogene 0_T_w avec Rodrigue et solvePnP (Etape 5)
 void computePose(
 	const vector<Point3f>& w_X_i_ref,
 	const vector<Point2f>& zero_x_i_ref,
@@ -52,9 +56,13 @@ void computePose(
 	Mat& zero_T_w
 )
 {
+	// Estimation rotation + translation
 	solvePnP(w_X_i_ref, zero_x_i_ref, K, dist, rvec, tvec);
+	
+	// Passage du vecteur rvec de rotation à une matrice R
 	Rodrigues(rvec, R);
 
+	// Construction de la matrice homogene
 	zero_T_w = (Mat_<double>(4, 4) <<
 		R.at<double>(0, 0), R.at<double>(0, 1), R.at<double>(0, 2), tvec.at<double>(0),
 		R.at<double>(1, 0), R.at<double>(1, 1), R.at<double>(1, 2), tvec.at<double>(1),
@@ -63,6 +71,7 @@ void computePose(
 		);
 }
 
+// SIFT (Etape 6)
 void computeSIFT(
 	const Mat& frame,
 	Ptr<SIFT>& sift,
@@ -73,6 +82,7 @@ void computeSIFT(
 	sift->detectAndCompute(frame, noArray(), keypoints, descriptors);
 }
 
+// Recupere les points clés uniquement dans la zone d'intérêt (Etape 6)
 void filterKeypointsInZone(
 	const vector<KeyPoint>& keypoints,
 	const Mat& descriptors,
@@ -91,6 +101,7 @@ void filterKeypointsInZone(
 	}
 }
 
+// Affiche la zone d'intérêt et les keypoints conservés (Etape 6)
 void drawZoneAndKeypoints(
 	const Mat& frame,
 	const vector<Point2f>& zero_x_i_ref,
@@ -107,6 +118,7 @@ void drawZoneAndKeypoints(
 	imshow("KP in zone", imgColor);
 }
 
+// Reconstruction des points 3D avec plan Z = 0 établi (Etape 7)
 vector<Point3d> compute3DPoints(
 	const vector<KeyPoint>& zero_x_i,
 	const Mat& K,
@@ -116,13 +128,16 @@ vector<Point3d> compute3DPoints(
 {
 	vector<Point3d> w_X_i;
 
+	// Inversion de la pose caméra
 	Mat R_inv = R.t();
 	Mat t_inv = -R_inv * tvec;
 
+	// Matrice homogène w_T_0
 	Mat w_T_zero = Mat::eye(4, 4, CV_64F);
 	R_inv.copyTo(w_T_zero(Rect(0, 0, 3, 3)));
 	t_inv.copyTo(w_T_zero(Rect(3, 0, 1, 3)));
 
+	// Position de la caméra dans le monde
 	Point3d O_cam(
 		w_T_zero.at<double>(0, 3),
 		w_T_zero.at<double>(1, 3),
@@ -130,10 +145,13 @@ vector<Point3d> compute3DPoints(
 	);
 
 	for (int i = 0; i < zero_x_i.size(); i++) {
+		// Coordonnées normalisées
 		double x_norm = (zero_x_i[i].pt.x - K.at<double>(0, 2)) / K.at<double>(0, 0);
 		double y_norm = (zero_x_i[i].pt.y - K.at<double>(1, 2)) / K.at<double>(1, 1);
 
+		// 0_r_i
 		Mat ray_cam = (Mat_<double>(3, 1) << x_norm, y_norm, 1.0);
+		// w_r_i
 		Mat ray_world_mat = R_inv * ray_cam;
 
 		Point3d d_world(
@@ -142,6 +160,7 @@ vector<Point3d> compute3DPoints(
 			ray_world_mat.at<double>(2)
 		);
 
+		// Intersection avec le plan Z=0
 		if (abs(d_world.z) > 1e-6) {
 			double lambda = -O_cam.z / d_world.z;
 			w_X_i.push_back(O_cam + lambda * d_world);
@@ -151,6 +170,8 @@ vector<Point3d> compute3DPoints(
 	return w_X_i;
 }
 
+// Reprojection pour vérifier que les points 3D se superposent aux points 2D (Etape 7)
+// Rouge = point détecté 2D  | Vert = reprojection 3D
 void reprojectAndDisplay(
 	const Mat& frame,
 	const vector<Point3d>& w_X_i,
@@ -178,6 +199,7 @@ void reprojectAndDisplay(
 	imshow("Verification Reprojection", imgCheck);
 }
 
+// Writer de video pour l'export
 VideoWriter initVideoWriter(const string& filename, int width, int height, double fps = 30.0)
 {
 	int fourcc = VideoWriter::fourcc('m', 'p', '4', 'v'); // mp4
@@ -247,21 +269,26 @@ int main()
 	namedWindow("Video Frame");
 	setMouseCallback("Video Frame", onMouse);
 
+	// First frame
 	Mat frame;
 	cap >> frame;
 
+	// Calibration (Etape 3)
 	Mat K, dist;
 	if (!loadCalibration("./ressources/calib.xml", K, dist)) return -1;
 
+	// (Etape 4)
 	vector<Point2f> refPts = transform(zero_x_i_ref, K);
 	cout << "refpts:" << refPts << endl;
 
+	// Calcul matrice homogene (Etape 5)
 	Mat rvec, tvec, R, zero_T_w;
 	computePose(w_X_i_ref, zero_x_i_ref, K, dist, rvec, tvec, R, zero_T_w);
 
 	cout << "R: " << R << endl << endl;
 	cout << "Matrice homogene de la camera:" << endl << zero_T_w << endl << endl;
 
+	// SIFT (Etape 6)
 	Ptr<SIFT> sift = SIFT::create();
 
 	vector<KeyPoint> keypoints;
@@ -269,17 +296,23 @@ int main()
 	computeSIFT(frame, sift, keypoints, descriptors);
 
 	Mat output;
+	// ---- Affichage des points SIFT ----
 	drawKeypoints(frame, keypoints, output, Scalar::all(255), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
 	imshow("SIFT keypoints", output);
 
 	vector<KeyPoint> zero_x_i;
 	Mat desc_zero;
 	filterKeypointsInZone(keypoints, descriptors, zero_x_i_ref, zero_x_i, desc_zero);
+
+	// ---- Affichage des points SIFT dans la zone d'intérêt ----
 	drawZoneAndKeypoints(frame, zero_x_i_ref, zero_x_i);
 
+	// Calcul points 3D (Etape 7)
 	vector<Point3d> w_X_i = compute3DPoints(zero_x_i, K, R, tvec);
 	reprojectAndDisplay(frame, w_X_i, zero_x_i, rvec, tvec, K, dist);
 
+
+	// BOUCLE DE LECTURE DES FRAMES I_k (Etape 8)
 	while (true)
 	{
 		cap >> frame;
@@ -293,6 +326,7 @@ int main()
 		vector<vector<DMatch>> desc_matches;
 		matcher.knnMatch(desc_zero, desc_k, desc_matches, 2);
 
+		// Matching entre les points (Etape 9)
 		vector<Point2f> zero_goodMatches_i, k_goodMatches_i;
 		for (size_t i = 0; i < desc_matches.size(); i++) {
 			if (desc_matches[i][0].distance < 0.75 * desc_matches[i][1].distance) {
@@ -301,6 +335,7 @@ int main()
 			}
 		}
 
+		// Affichage du repère et du quadrilatère (Etape 10, 11 et 12)
 		if (zero_goodMatches_i.size() >= 4) {
 			Mat H = findHomography(zero_goodMatches_i, k_goodMatches_i, RANSAC);
 			if (!H.empty()) {
@@ -308,7 +343,7 @@ int main()
 				perspectiveTransform(zero_x_i_ref, projected_corners, H);
 
 				vector<Point> points_int(projected_corners.begin(), projected_corners.end());
-				polylines(frame, vector<vector<Point>>{points_int}, true, Scalar(0, 255, 0), 2);
+				polylines(frame, vector<vector<Point>>{points_int}, true, Scalar(255, 0, 255), 2);
 
 				Mat rvec_k, tvec_k, R_k, k_T_w;
 				computePose(w_X_i_ref, projected_corners, K, dist, rvec_k, tvec_k, R_k, k_T_w);
@@ -317,8 +352,12 @@ int main()
 			}
 		}
 
+		// ---- Affichage de la frame I_k avec quadrilatere et repere ----
 		imshow("Video Frame", frame);
+
+		// Encodage de la video (Etape 13)
 		if (writer.isOpened()) writer.write(frame);
+
 		if (waitKey(30) >= 0) break;
 	}
 	cap.release();
